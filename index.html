@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIY File Beam (Adaptive)</title>
+    <title>DIY File Beam (Smart USB)</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PeerJS for WebRTC connection -->
@@ -18,7 +18,7 @@
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
         }
         body {
-            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); /* Blue for Professional/Stable */
+            background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); /* Indigo */
             min-height: 100vh;
         }
         /* Pulse animation for active transfer */
@@ -28,12 +28,21 @@
             100% { background-position: 0% 50%; }
         }
         .transferring {
-            background: linear-gradient(270deg, #3b82f6, #60a5fa, #3b82f6);
+            background: linear-gradient(270deg, #4f46e5, #818cf8, #4f46e5);
             background-size: 200% 200%;
             animation: flow 2s ease infinite;
         }
         .gear-indicator {
             transition: all 0.3s ease;
+        }
+        /* USB Warning Animation */
+        @keyframes flash-red {
+            0%, 100% { border-color: transparent; }
+            50% { border-color: #ef4444; }
+        }
+        .usb-alert {
+            animation: flash-red 2s infinite;
+            border: 2px solid #ef4444;
         }
     </style>
 </head>
@@ -41,20 +50,36 @@
 
     <div class="glass-panel w-full max-w-md rounded-2xl p-6 transition-all duration-300">
         <!-- Header -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-4">
-                <i class="fas fa-cogs text-3xl"></i>
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
+                <i class="fas fa-network-wired text-3xl"></i>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800">File Beam <span class="text-blue-600">Adaptive</span></h1>
-            <p class="text-sm text-gray-500 mt-1">Auto-Gearing for Max Speed</p>
+            <h1 class="text-2xl font-bold text-gray-800">File Beam <span class="text-indigo-600">Smart</span></h1>
+            <p class="text-sm text-gray-500 mt-1">USB Detection & Auto-Gearing</p>
+        </div>
+
+        <!-- Network Path Status (New Feature) -->
+        <div id="network-monitor" class="hidden mb-6 bg-gray-50 rounded-xl p-3 border border-gray-200 text-sm">
+             <div class="flex justify-between items-center mb-1">
+                 <span class="text-gray-500 font-bold text-xs uppercase">Current Path</span>
+                 <span id="path-type" class="font-mono font-bold text-gray-700">Analyzing...</span>
+             </div>
+             <div class="flex justify-between items-center">
+                 <span class="text-gray-500 font-bold text-xs uppercase">Latency (Ping)</span>
+                 <span id="ping-stat" class="font-mono text-gray-700">-- ms</span>
+             </div>
+             <div id="wifi-warning" class="hidden mt-2 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100 flex items-center">
+                 <i class="fas fa-exclamation-triangle mr-2"></i>
+                 <span><strong>Slow Path Detected:</strong> Turn OFF Wi-Fi on phone to force USB Tethering.</span>
+             </div>
         </div>
 
         <!-- Connection Status -->
         <div id="status-panel" class="mb-6 bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
             <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Your Identity</p>
             <div class="flex items-center justify-between">
-                <span id="my-id" class="text-lg font-mono font-bold text-blue-600 select-all">Generating...</span>
-                <button onclick="copyId()" class="text-gray-400 hover:text-blue-600 transition-colors">
+                <span id="my-id" class="text-lg font-mono font-bold text-indigo-600 select-all">Generating...</span>
+                <button onclick="copyId()" class="text-gray-400 hover:text-indigo-600 transition-colors">
                     <i class="fas fa-copy"></i>
                 </button>
             </div>
@@ -76,14 +101,14 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Connect to Receiver</label>
                     <div class="flex gap-2">
-                        <input type="text" id="dest-id" placeholder="Enter PC's ID here" class="flex-1 rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none uppercase">
-                        <button onclick="connectToPeer()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <input type="text" id="dest-id" placeholder="Enter PC's ID here" class="flex-1 rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase">
+                        <button onclick="connectToPeer()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
                             <i class="fas fa-link"></i>
                         </button>
                     </div>
                 </div>
 
-                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-500 transition-colors cursor-pointer relative">
+                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer relative">
                     <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(this)">
                     <div id="drop-zone-text">
                         <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
@@ -93,7 +118,7 @@
                 
                 <div id="action-area">
                     <button onclick="startTransfer()" id="send-btn" class="w-full bg-gray-300 text-gray-500 font-bold py-3 rounded-xl cursor-not-allowed transition-all" disabled>
-                        Start Adaptive Transfer
+                        Start Transfer
                     </button>
                 </div>
             </div>
@@ -103,7 +128,7 @@
         <div id="view-receive" class="hidden">
             <div class="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
                 <div class="mb-4">
-                    <i class="fas fa-satellite-dish text-4xl text-blue-300"></i>
+                    <i class="fas fa-satellite-dish text-4xl text-indigo-300"></i>
                 </div>
                 <h3 class="font-bold text-gray-800 mb-2">Ready to Receive</h3>
                 <p class="text-sm text-gray-500 mb-4">Share your ID above with the sender.</p>
@@ -117,10 +142,10 @@
         <div id="progress-panel" class="hidden mt-6">
             <div class="flex justify-between text-sm mb-1">
                 <span class="font-medium text-gray-700" id="progress-text">Transferring...</span>
-                <span class="font-bold text-blue-600" id="progress-percent">0%</span>
+                <span class="font-bold text-indigo-600" id="progress-percent">0%</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
             <div class="flex justify-between items-center mt-2">
                 <div class="flex items-center space-x-2 text-xs text-gray-500">
@@ -143,7 +168,8 @@
         let writableStream = null;
         let transferActive = false;
         
-        // Speed Calculation vars
+        // Stats
+        let statsInterval = null;
         let lastTime = Date.now();
         let lastOffset = 0;
         
@@ -191,6 +217,9 @@
                 setStatus("Connected securely!", "green");
                 document.getElementById('connection-status').innerHTML = 
                     `<span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span> Connected`;
+                
+                // Start Network Diagnostics
+                startNetworkStats();
             });
 
             conn.on('data', async (data) => {
@@ -199,9 +228,65 @@
 
             conn.on('close', () => {
                 setStatus("Disconnected", "red");
+                stopNetworkStats();
                 if(transferActive) cancelTransfer();
             });
         }
+
+        // --- Network Diagnostics (Smart USB Detection) ---
+        function startNetworkStats() {
+            document.getElementById('network-monitor').classList.remove('hidden');
+            
+            if(statsInterval) clearInterval(statsInterval);
+            
+            statsInterval = setInterval(async () => {
+                if(!conn || !conn.peerConnection) return;
+                
+                try {
+                    const stats = await conn.peerConnection.getStats();
+                    let rtt = null;
+                    let candidateType = 'unknown';
+
+                    stats.forEach(report => {
+                        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                            rtt = report.currentRoundTripTime * 1000; // to ms
+                        }
+                        if (report.type === 'remote-candidate') {
+                            candidateType = report.candidateType;
+                        }
+                    });
+
+                    // Update UI
+                    if(rtt !== null) {
+                         const pingEl = document.getElementById('ping-stat');
+                         pingEl.innerText = rtt.toFixed(1) + " ms";
+                         
+                         // Determine Path Type
+                         const pathEl = document.getElementById('path-type');
+                         const warnEl = document.getElementById('wifi-warning');
+                         
+                         // Logic: USB Tether usually < 4ms. Wi-Fi usually > 5ms to 50ms.
+                         if (rtt < 5) {
+                             pathEl.innerHTML = `<span class="text-green-600"><i class="fas fa-bolt"></i> USB / LAN (Fast)</span>`;
+                             warnEl.classList.add('hidden');
+                         } else if (rtt < 50) {
+                             pathEl.innerHTML = `<span class="text-amber-600"><i class="fas fa-wifi"></i> Wi-Fi / Local</span>`;
+                             // Show warning if user wants speed
+                             warnEl.classList.remove('hidden');
+                         } else {
+                             pathEl.innerHTML = `<span class="text-red-600"><i class="fas fa-globe"></i> Relay / Internet (Slow)</span>`;
+                             warnEl.classList.remove('hidden');
+                         }
+                    }
+                } catch(e) { console.log("Stats error", e); }
+            }, 2000);
+        }
+        
+        function stopNetworkStats() {
+            if(statsInterval) clearInterval(statsInterval);
+            document.getElementById('network-monitor').classList.add('hidden');
+        }
+
 
         // --- Optimized File Sending Logic ---
         
@@ -209,7 +294,7 @@
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = (e) => resolve(null); // Handle error
+                reader.onerror = (e) => resolve(null); 
                 reader.readAsArrayBuffer(file.slice(offset, offset + length));
             });
         }
@@ -218,23 +303,20 @@
             if (input.files.length > 0) {
                 selectedFile = input.files[0];
                 document.getElementById('drop-zone-text').innerHTML = 
-                    `<i class="fas fa-file-video text-3xl text-blue-500 mb-2"></i>
+                    `<i class="fas fa-file-video text-3xl text-indigo-500 mb-2"></i>
                      <p class="text-sm font-bold text-gray-700">${selectedFile.name}</p>
                      <p class="text-xs text-gray-500">${(selectedFile.size / (1024*1024*1024)).toFixed(2)} GB</p>`;
                 
                 const btn = document.getElementById('send-btn');
                 btn.disabled = false;
                 btn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-                btn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+                btn.classList.add('bg-indigo-600', 'text-white', 'hover:bg-indigo-700');
             }
         }
 
         function cancelTransfer() {
             transferActive = false;
-            // Send cancel signal
-            if (conn && conn.open) {
-                conn.send({ type: 'cancel' });
-            }
+            if (conn && conn.open) conn.send({ type: 'cancel' });
             resetTransferUI();
             alert("Transfer Cancelled");
         }
@@ -243,7 +325,6 @@
             if (!conn || !conn.open) return alert("Not connected to Receiver!");
             if (!selectedFile) return;
 
-            // Swap Send button for Cancel button
             const actionArea = document.getElementById('action-area');
             actionArea.innerHTML = `
                 <button onclick="cancelTransfer()" class="w-full bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all shadow-md">
@@ -251,7 +332,6 @@
                 </button>
             `;
 
-            // 1. Send Metadata
             conn.send({
                 type: 'metadata',
                 name: selectedFile.name,
@@ -265,26 +345,22 @@
             transferActive = true;
 
             // --- ADAPTIVE GEAR SYSTEM ---
-            // Gears: 1=32KB, 2=64KB, 3=128KB, 4=256KB, 5=512KB
             const GEARS = [32*1024, 64*1024, 128*1024, 256*1024, 512*1024];
-            let currentGearIndex = 1; // Start at 64KB (Gear 2)
+            let currentGearIndex = 1; 
             let chunkSize = GEARS[currentGearIndex]; 
-            const MAX_BUFFER = 16 * 1024 * 1024; // 16MB Safe Limit
+            const MAX_BUFFER = 16 * 1024 * 1024; 
 
             let offset = 0;
             lastTime = Date.now();
             lastOffset = 0;
             let chunksSentSinceCheck = 0;
 
-            // 2. Loop
             while (offset < selectedFile.size && transferActive) {
                 
-                // Flow Control: If buffer is too full, wait
                 if (conn.dataChannel.bufferedAmount > MAX_BUFFER) {
-                    await new Promise(r => setTimeout(r, 10)); // Breather
+                    await new Promise(r => setTimeout(r, 0)); // Aggressive 0ms wait
                     
-                    // Downshift if we are choking (buffer staying full)
-                    if (currentGearIndex > 0 && Math.random() > 0.8) { // 20% chance to downshift on choke
+                    if (currentGearIndex > 0 && Math.random() > 0.9) { 
                         currentGearIndex--;
                         chunkSize = GEARS[currentGearIndex];
                         updateGearUI(currentGearIndex, chunkSize);
@@ -292,10 +368,8 @@
                     continue; 
                 }
 
-                // If buffer is empty, we might be going too slow -> Upshift!
                 if (conn.dataChannel.bufferedAmount === 0 && currentGearIndex < GEARS.length - 1) {
-                     // Only upshift occasionally to check stability
-                     if (chunksSentSinceCheck > 20) {
+                     if (chunksSentSinceCheck > 50) {
                         currentGearIndex++;
                         chunkSize = GEARS[currentGearIndex];
                         updateGearUI(currentGearIndex, chunkSize);
@@ -304,20 +378,14 @@
                 }
 
                 const chunk = await readChunk(selectedFile, offset, chunkSize);
-                if (!chunk) break; // Error reading
+                if (!chunk) break; 
 
-                conn.send({
-                    type: 'chunk',
-                    data: chunk
-                });
+                conn.send({ type: 'chunk', data: chunk });
 
                 offset += chunk.byteLength;
                 chunksSentSinceCheck++;
                 
-                // Throttle UI updates
-                if (chunksSentSinceCheck % 5 === 0) {
-                    updateProgress(offset, selectedFile.size);
-                }
+                if (chunksSentSinceCheck % 5 === 0) updateProgress(offset, selectedFile.size);
             }
             
             if (transferActive) {
@@ -350,23 +418,17 @@
 
                 if ('showSaveFilePicker' in window) {
                     try {
-                        fileHandle = await window.showSaveFilePicker({
-                            suggestedName: data.name
-                        });
+                        fileHandle = await window.showSaveFilePicker({ suggestedName: data.name });
                         writableStream = await fileHandle.createWritable();
                     } catch (err) {
-                        console.log("File save cancelled.");
-                        conn.send({type: 'cancel'}); // Notify sender
+                        conn.send({type: 'cancel'});
                         resetTransferUI();
                     }
                 }
 
             } else if (data.type === 'chunk' && transferActive) {
                 receivedSize += data.data.byteLength;
-                
-                if (receivedSize % (256*1024) < 64*1024) { // Throttle receiver UI
-                     updateProgress(receivedSize, totalSize);
-                }
+                if (receivedSize % (512*1024) < 64*1024) updateProgress(receivedSize, totalSize);
 
                 if (writableStream) {
                     await writableStream.write(data.data);
@@ -404,8 +466,8 @@
         function resetTransferUI() {
             transferActive = false;
             document.getElementById('action-area').innerHTML = `
-                <button onclick="startTransfer()" id="send-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-all">
-                    Start Adaptive Transfer
+                <button onclick="startTransfer()" id="send-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">
+                    Start Transfer
                 </button>
             `;
             setTimeout(() => {
@@ -421,8 +483,7 @@
             const el = document.getElementById('gear-text');
             el.innerText = `Gear ${index+1} (${kb}KB)`;
             
-            // Visual flair for high gears
-            if (index >= 3) el.className = "gear-indicator font-mono font-bold text-blue-600";
+            if (index >= 3) el.className = "gear-indicator font-mono font-bold text-indigo-600";
             else el.className = "gear-indicator font-mono text-gray-500";
         }
 
