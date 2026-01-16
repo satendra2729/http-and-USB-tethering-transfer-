@@ -1,0 +1,383 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>DIY File Beam</title>
+   <!-- Tailwind CSS for styling -->
+   <script src="https://cdn.tailwindcss.com"></script>
+   <!-- PeerJS for WebRTC connection -->
+   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+   <!-- FontAwesome for Icons -->
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+   <style>
+       .glass-panel {
+           background: rgba(255, 255, 255, 0.95);
+           backdrop-filter: blur(10px);
+           border: 1px solid rgba(255, 255, 255, 0.2);
+           box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+       }
+       body {
+           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+           min-height: 100vh;
+       }
+   </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+
+   <div class="glass-panel w-full max-w-md rounded-2xl p-6 transition-all duration-300">
+       <!-- Header -->
+       <div class="text-center mb-8">
+           <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
+               <i class="fas fa-bolt text-2xl"></i>
+           </div>
+           <h1 class="text-2xl font-bold text-gray-800">DIY File Beam</h1>
+           <p class="text-sm text-gray-500 mt-1">Direct P2P Transfer (Supports 4GB+)</p>
+       </div>
+
+
+       <!-- Connection Status -->
+       <div id="status-panel" class="mb-6 bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+           <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Your Identity</p>
+           <div class="flex items-center justify-between">
+               <span id="my-id" class="text-lg font-mono font-bold text-indigo-600 select-all">Generating...</span>
+               <button onclick="copyId()" class="text-gray-400 hover:text-indigo-600 transition-colors">
+                   <i class="fas fa-copy"></i>
+               </button>
+           </div>
+           <p id="connection-status" class="text-xs mt-3 flex items-center text-amber-500">
+               <span class="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></span>
+               Waiting for connection...
+           </p>
+       </div>
+
+
+       <!-- Tabs -->
+       <div class="flex mb-6 bg-gray-100 p-1 rounded-lg">
+           <button onclick="switchTab('send')" id="tab-send" class="flex-1 py-2 rounded-md text-sm font-medium bg-white shadow-sm text-gray-800 transition-all">Sender (Phone)</button>
+           <button onclick="switchTab('receive')" id="tab-receive" class="flex-1 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition-all">Receiver (PC)</button>
+       </div>
+
+
+       <!-- Sender View -->
+       <div id="view-send" class="block">
+           <div class="space-y-4">
+               <div>
+                   <label class="block text-sm font-medium text-gray-700 mb-1">Connect to Receiver</label>
+                   <div class="flex gap-2">
+                       <input type="text" id="dest-id" placeholder="Enter PC's ID here" class="flex-1 rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase">
+                       <button onclick="connectToPeer()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                           <i class="fas fa-link"></i>
+                       </button>
+                   </div>
+               </div>
+
+
+               <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer relative">
+                   <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(this)">
+                   <div id="drop-zone-text">
+                       <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                       <p class="text-sm text-gray-500">Tap to select file</p>
+                   </div>
+               </div>
+              
+               <button onclick="startTransfer()" id="send-btn" class="w-full bg-gray-300 text-gray-500 font-bold py-3 rounded-xl cursor-not-allowed transition-all" disabled>
+                   Send File
+               </button>
+           </div>
+       </div>
+
+
+       <!-- Receiver View -->
+       <div id="view-receive" class="hidden">
+           <div class="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
+               <div class="mb-4">
+                   <i class="fas fa-satellite-dish text-4xl text-indigo-300"></i>
+               </div>
+               <h3 class="font-bold text-gray-800 mb-2">Ready to Receive</h3>
+               <p class="text-sm text-gray-500 mb-4">Share your ID above with the sender.</p>
+               <div id="fs-warning" class="hidden text-xs text-green-600 bg-green-50 p-2 rounded border border-green-100">
+                   <i class="fas fa-check-circle mr-1"></i> Direct Disk Access Available
+               </div>
+           </div>
+       </div>
+
+
+       <!-- Progress Overlay -->
+       <div id="progress-panel" class="hidden mt-6">
+           <div class="flex justify-between text-sm mb-1">
+               <span class="font-medium text-gray-700" id="progress-text">Transferring...</span>
+               <span class="font-bold text-indigo-600" id="progress-percent">0%</span>
+           </div>
+           <div class="w-full bg-gray-200 rounded-full h-2.5">
+               <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+           </div>
+           <p id="speed-text" class="text-xs text-gray-400 mt-1 text-right">0 MB/s</p>
+       </div>
+
+
+   </div>
+
+
+   <script>
+       // --- Logic & State ---
+       let peer = null;
+       let conn = null;
+       let myId = '';
+       let selectedFile = null;
+       let fileHandle = null;
+       let writableStream = null;
+      
+       // PeerJS Configuration (Uses public server)
+       const peerConfig = {
+           debug: 2
+       };
+
+
+       // Initialize Peer
+       function init() {
+           // Generate a random 4-char ID for easier typing
+           const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
+           peer = new Peer(shortId, peerConfig);
+
+
+           peer.on('open', (id) => {
+               myId = id;
+               document.getElementById('my-id').innerText = id;
+           });
+
+
+           peer.on('connection', (connection) => {
+               handleConnection(connection);
+           });
+
+
+           peer.on('error', (err) => {
+               console.error(err);
+               alert("Connection Error: " + err.type);
+           });
+
+
+           // Check for File System Access API (Chrome Desktop/OS support)
+           if ('showSaveFilePicker' in window) {
+               document.getElementById('fs-warning').classList.remove('hidden');
+           }
+       }
+
+
+       // --- Connection Handling ---
+       function connectToPeer() {
+           const destId = document.getElementById('dest-id').value.toUpperCase();
+           if (!destId) return alert("Please enter the ID");
+          
+           setStatus("Connecting to " + destId + "...", "amber");
+           conn = peer.connect(destId);
+           handleConnection(conn);
+       }
+
+
+       function handleConnection(connection) {
+           conn = connection;
+          
+           conn.on('open', () => {
+               setStatus("Connected securely!", "green");
+               document.getElementById('connection-status').innerHTML =
+                   `<span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span> Connected`;
+           });
+
+
+           conn.on('data', async (data) => {
+               handleIncomingData(data);
+           });
+
+
+           conn.on('close', () => {
+               setStatus("Disconnected", "red");
+               endTransfer();
+           });
+       }
+
+
+       // --- File Sending Logic ---
+       function handleFileSelect(input) {
+           if (input.files.length > 0) {
+               selectedFile = input.files[0];
+               document.getElementById('drop-zone-text').innerHTML =
+                   `<i class="fas fa-file-video text-3xl text-indigo-500 mb-2"></i>
+                    <p class="text-sm font-bold text-gray-700">${selectedFile.name}</p>
+                    <p class="text-xs text-gray-500">${(selectedFile.size / (1024*1024*1024)).toFixed(2)} GB</p>`;
+              
+               const btn = document.getElementById('send-btn');
+               btn.disabled = false;
+               btn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+               btn.classList.add('bg-indigo-600', 'text-white', 'hover:bg-indigo-700');
+           }
+       }
+
+
+       async function startTransfer() {
+           if (!conn || !conn.open) return alert("Not connected to Receiver!");
+           if (!selectedFile) return;
+
+
+           // 1. Send Metadata
+           conn.send({
+               type: 'metadata',
+               name: selectedFile.name,
+               size: selectedFile.size,
+               mime: selectedFile.type
+           });
+
+
+           document.getElementById('progress-panel').classList.remove('hidden');
+          
+           // 2. Start Chunked Sending
+           const chunkSize = 64 * 1024; // 64KB chunks for stability
+           let offset = 0;
+           const fileReader = new FileReader();
+
+
+           fileReader.onload = (e) => {
+               conn.send({
+                   type: 'chunk',
+                   data: e.target.result
+               });
+
+
+               offset += e.target.result.byteLength;
+               updateProgress(offset, selectedFile.size);
+
+
+               if (offset < selectedFile.size) {
+                   readNextChunk();
+               } else {
+                   conn.send({ type: 'end' });
+                   setStatus("Transfer Complete", "green");
+               }
+           };
+
+
+           const readNextChunk = () => {
+               const slice = selectedFile.slice(offset, offset + chunkSize);
+               fileReader.readAsArrayBuffer(slice);
+           };
+
+
+           readNextChunk();
+       }
+
+
+       // --- File Receiving Logic ---
+       let receivedSize = 0;
+       let totalSize = 0;
+       let incomingFileName = "";
+       let receiveBuffer = []; // Fallback buffer
+
+
+       async function handleIncomingData(data) {
+           if (data.type === 'metadata') {
+               totalSize = data.size;
+               incomingFileName = data.name;
+               receivedSize = 0;
+               receiveBuffer = []; // Reset buffer
+              
+               document.getElementById('progress-panel').classList.remove('hidden');
+               document.getElementById('progress-text').innerText = `Receiving: ${data.name}`;
+
+
+               // Try to use Native File System API to avoid RAM crash
+               if ('showSaveFilePicker' in window) {
+                   try {
+                       fileHandle = await window.showSaveFilePicker({
+                           suggestedName: data.name
+                       });
+                       writableStream = await fileHandle.createWritable();
+                   } catch (err) {
+                       console.log("User cancelled save or API failed, falling back to RAM buffer (Risky for >2GB)");
+                   }
+               }
+
+
+           } else if (data.type === 'chunk') {
+               receivedSize += data.data.byteLength;
+               updateProgress(receivedSize, totalSize);
+
+
+               if (writableStream) {
+                   // Direct to Disk (ChromeOS Optimized)
+                   await writableStream.write(data.data);
+               } else {
+                   // RAM Buffer (Fallback)
+                   receiveBuffer.push(data.data);
+               }
+
+
+           } else if (data.type === 'end') {
+               if (writableStream) {
+                   await writableStream.close();
+                   alert("File Saved Successfully!");
+               } else {
+                   // Fallback Download (Might crash on 4.5GB)
+                   const blob = new Blob(receiveBuffer);
+                   const url = URL.createObjectURL(blob);
+                   const a = document.createElement('a');
+                   a.href = url;
+                   a.download = incomingFileName;
+                   a.click();
+               }
+               resetTransfer();
+           }
+       }
+
+
+       // --- UI Utilities ---
+       function switchTab(tab) {
+           document.getElementById('tab-send').className = tab === 'send'
+               ? "flex-1 py-2 rounded-md text-sm font-medium bg-white shadow-sm text-gray-800 transition-all"
+               : "flex-1 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition-all";
+          
+           document.getElementById('tab-receive').className = tab === 'receive'
+               ? "flex-1 py-2 rounded-md text-sm font-medium bg-white shadow-sm text-gray-800 transition-all"
+               : "flex-1 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition-all";
+
+
+           document.getElementById('view-send').className = tab === 'send' ? "block" : "hidden";
+           document.getElementById('view-receive').className = tab === 'receive' ? "block" : "hidden";
+       }
+
+
+       function updateProgress(current, total) {
+           const percent = Math.round((current / total) * 100);
+           document.getElementById('progress-bar').style.width = percent + "%";
+           document.getElementById('progress-percent').innerText = percent + "%";
+       }
+
+
+       function copyId() {
+           navigator.clipboard.writeText(myId);
+           alert("ID Copied!");
+       }
+
+
+       function setStatus(msg, color) {
+           // Simple status logging
+           console.log(msg);
+       }
+
+
+       function resetTransfer() {
+           setTimeout(() => {
+               document.getElementById('progress-panel').classList.add('hidden');
+               document.getElementById('progress-bar').style.width = "0%";
+           }, 3000);
+           writableStream = null;
+           receiveBuffer = [];
+       }
+
+
+       // Start App
+       init();
+   </script>
+</body>
+</html>
