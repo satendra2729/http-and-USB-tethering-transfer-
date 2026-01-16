@@ -66,7 +66,7 @@
         <div id="network-monitor" class="hidden mb-6 bg-gray-50 rounded-xl p-3 border border-gray-200 text-sm transition-all duration-300">
              <div class="flex justify-between items-center mb-1">
                  <span class="text-gray-500 font-bold text-xs uppercase">Current Path</span>
-                 <span id="path-type" class="font-mono font-bold text-gray-700">Analyzing...</span>
+                 <span id="path-type" class="font-mono font-bold text-gray-700">Connecting...</span>
              </div>
              <div class="flex justify-between items-center">
                  <span class="text-gray-500 font-bold text-xs uppercase">Latency (Ping)</span>
@@ -95,10 +95,20 @@
                     <i class="fas fa-copy"></i>
                 </button>
             </div>
-            <p id="connection-status" class="text-xs mt-3 flex items-center text-amber-500">
-                <span class="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></span>
-                Waiting for connection...
-            </p>
+            
+            <div class="mt-3">
+                <p id="connection-status" class="text-xs flex items-center text-amber-500 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></span>
+                    Waiting for connection...
+                </p>
+                <div id="troubleshoot-area" class="hidden mt-2">
+                    <button onclick="retryConnection()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full transition-colors border border-gray-300">
+                        <i class="fas fa-redo-alt mr-1"></i> Stuck? Retry
+                    </button>
+                    <p class="text-[10px] text-red-400 mt-1 ml-1">Tip: Toggle Airplane mode on phone & refresh.</p>
+                </div>
+            </div>
+
             <p class="text-[10px] text-gray-400 mt-2 text-center border-t border-gray-100 pt-2">
                 <i class="fas fa-info-circle"></i> Mobile Data MUST be ON for initial handshake.<br>
                 If USB fails: Refresh Phone browser <b>after</b> plugging in.
@@ -118,7 +128,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Connect to Receiver</label>
                     <div class="flex gap-2">
                         <input type="text" id="dest-id" placeholder="Enter PC's ID here" class="flex-1 rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase">
-                        <button onclick="connectToPeer()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                        <button onclick="connectToPeer()" id="connect-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
                             <i class="fas fa-link"></i>
                         </button>
                     </div>
@@ -200,7 +210,7 @@
                     { urls: 'stun:stun3.l.google.com:19302' },
                     { urls: 'stun:stun4.l.google.com:19302' },
                 ],
-                iceCandidatePoolSize: 10, // Helps with faster connection
+                iceCandidatePoolSize: 10, 
             }
         };
 
@@ -221,12 +231,12 @@
             peer.on('error', (err) => {
                 console.error(err);
                 if (err.type === 'peer-unavailable') {
-                    alert("Could not connect to peer. Check if ID is correct and both devices have internet.");
-                } else if (err.type === 'network') {
-                    alert("Network error. Please check your internet connection.");
+                    alert("Could not connect: User ID not found. Check typo or internet.");
+                    setConnStatus("Peer not found", "red");
                 } else {
-                    alert("Connection Error: " + err.type);
+                    setConnStatus("Error: " + err.type, "red");
                 }
+                document.getElementById('troubleshoot-area').classList.remove('hidden');
             });
 
             if ('showSaveFilePicker' in window) {
@@ -235,11 +245,17 @@
         }
 
         // --- Connection Handling ---
+        function retryConnection() {
+            if(conn) conn.close();
+            connectToPeer();
+            document.getElementById('troubleshoot-area').classList.add('hidden');
+        }
+
         function connectToPeer() {
             const destId = document.getElementById('dest-id').value.toUpperCase();
             if (!destId) return alert("Please enter the ID");
             
-            setStatus("Connecting to " + destId + "...", "amber");
+            setConnStatus("Initializing handshake...", "amber");
             
             // Explicitly requesting reliable channel
             conn = peer.connect(destId, { 
@@ -252,18 +268,30 @@
         function handleConnection(connection) {
             conn = connection;
             
+            // Watch internal ICE state for detailed feedback
+            conn.peerConnection.oniceconnectionstatechange = () => {
+                const state = conn.peerConnection.iceConnectionState;
+                console.log("ICE State:", state);
+                if(state === 'checking') setConnStatus("Checking Network Paths...", "amber");
+                if(state === 'connected') setConnStatus("Path Found! Securing...", "green");
+                if(state === 'failed' || state === 'disconnected') {
+                    setConnStatus("Connection Failed", "red");
+                    document.getElementById('troubleshoot-area').classList.remove('hidden');
+                }
+            };
+
             // Timeout safety check
             const timeoutCheck = setTimeout(() => {
                 if (!conn.open) {
-                    setStatus("Connection Timed Out. Retrying...", "red");
+                    setConnStatus("Connection Stuck...", "red");
+                    document.getElementById('troubleshoot-area').classList.remove('hidden');
                 }
-            }, 8000);
+            }, 6000);
 
             conn.on('open', () => {
                 clearTimeout(timeoutCheck);
-                setStatus("Connected securely!", "green");
-                document.getElementById('connection-status').innerHTML = 
-                    `<span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span> Connected`;
+                setConnStatus("Connected securely!", "green");
+                document.getElementById('troubleshoot-area').classList.add('hidden');
                 
                 // Start Network Diagnostics
                 startNetworkStats();
@@ -274,19 +302,32 @@
             });
 
             conn.on('close', () => {
-                setStatus("Disconnected", "red");
+                setConnStatus("Disconnected", "red");
                 stopNetworkStats();
                 if(transferActive) cancelTransfer();
             });
         }
 
+        function setConnStatus(text, colorClass) {
+            const el = document.getElementById('connection-status');
+            let color = "text-gray-500";
+            if(colorClass === 'amber') color = "text-amber-500";
+            if(colorClass === 'red') color = "text-red-500";
+            if(colorClass === 'green') color = "text-green-600";
+            
+            el.className = `text-xs flex items-center font-medium ${color}`;
+            el.innerHTML = `<span class="w-2 h-2 rounded-full bg-${colorClass}-500 mr-2 ${colorClass === 'amber' ? 'animate-pulse' : ''}"></span> ${text}`;
+        }
+
         // --- Network Diagnostics (Smart USB Detection) ---
         function updateMode() {
-            startNetworkStats(); 
+            // Only start stats if we are actually connected
+            if(conn && conn.open) startNetworkStats(); 
         }
 
         function startNetworkStats() {
             document.getElementById('network-monitor').classList.remove('hidden');
+            document.getElementById('path-type').innerText = "Analyzing Path...";
             
             if(statsInterval) clearInterval(statsInterval);
             
@@ -591,10 +632,6 @@
         function copyId() {
             navigator.clipboard.writeText(myId);
             alert("ID Copied!");
-        }
-
-        function setStatus(msg, color) {
-            console.log(msg);
         }
 
         // Start App
