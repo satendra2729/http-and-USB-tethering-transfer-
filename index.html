@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIY File Beam (Smart USB)</title>
+    <title>DIY File Beam (Priority Control)</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PeerJS for WebRTC connection -->
@@ -35,15 +35,6 @@
         .gear-indicator {
             transition: all 0.3s ease;
         }
-        /* USB Warning Animation */
-        @keyframes flash-red {
-            0%, 100% { border-color: transparent; }
-            50% { border-color: #ef4444; }
-        }
-        .usb-alert {
-            animation: flash-red 2s infinite;
-            border: 2px solid #ef4444;
-        }
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
@@ -54,12 +45,25 @@
             <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
                 <i class="fas fa-network-wired text-3xl"></i>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800">File Beam <span class="text-indigo-600">Smart</span></h1>
-            <p class="text-sm text-gray-500 mt-1">USB Detection & Auto-Gearing</p>
+            <h1 class="text-2xl font-bold text-gray-800">File Beam <span class="text-indigo-600">Pro</span></h1>
+            
+            <!-- Priority Mode Selector -->
+            <div class="mt-4 flex justify-center">
+                <div class="relative inline-flex bg-gray-50 rounded-lg p-1 border border-gray-200 shadow-inner">
+                    <select id="transfer-mode" onchange="updateMode()" class="bg-transparent font-bold text-xs text-indigo-700 py-2 px-4 pr-8 rounded-md focus:outline-none cursor-pointer appearance-none uppercase tracking-wide">
+                        <option value="auto">Auto (Best Effort)</option>
+                        <option value="usb">Force USB Speed</option>
+                        <option value="wifi">Wi-Fi Only</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-indigo-500">
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Network Path Status (New Feature) -->
-        <div id="network-monitor" class="hidden mb-6 bg-gray-50 rounded-xl p-3 border border-gray-200 text-sm">
+        <!-- Network Path Monitor -->
+        <div id="network-monitor" class="hidden mb-6 bg-gray-50 rounded-xl p-3 border border-gray-200 text-sm transition-all duration-300">
              <div class="flex justify-between items-center mb-1">
                  <span class="text-gray-500 font-bold text-xs uppercase">Current Path</span>
                  <span id="path-type" class="font-mono font-bold text-gray-700">Analyzing...</span>
@@ -68,9 +72,17 @@
                  <span class="text-gray-500 font-bold text-xs uppercase">Latency (Ping)</span>
                  <span id="ping-stat" class="font-mono text-gray-700">-- ms</span>
              </div>
-             <div id="wifi-warning" class="hidden mt-2 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100 flex items-center">
-                 <i class="fas fa-exclamation-triangle mr-2"></i>
-                 <span><strong>Slow Path Detected:</strong> Turn OFF Wi-Fi on phone to force USB Tethering.</span>
+             
+             <!-- Dynamic Warnings -->
+             <div id="path-warning" class="hidden mt-3 p-3 bg-red-50 text-red-700 text-xs rounded-lg border border-red-100 flex items-start">
+                 <i class="fas fa-exclamation-triangle mt-0.5 mr-2 flex-shrink-0"></i>
+                 <span id="warning-text">Warning message here.</span>
+             </div>
+             
+             <!-- Success Badge -->
+             <div id="usb-success" class="hidden mt-3 p-3 bg-emerald-50 text-emerald-700 text-xs rounded-lg border border-emerald-100 flex items-center">
+                 <i class="fas fa-bolt mr-2 text-emerald-500"></i>
+                 <span><strong>High Speed Active!</strong> USB connection verified.</span>
              </div>
         </div>
 
@@ -234,6 +246,11 @@
         }
 
         // --- Network Diagnostics (Smart USB Detection) ---
+        function updateMode() {
+            // Re-trigger analysis when mode changes
+            startNetworkStats(); 
+        }
+
         function startNetworkStats() {
             document.getElementById('network-monitor').classList.remove('hidden');
             
@@ -245,41 +262,60 @@
                 try {
                     const stats = await conn.peerConnection.getStats();
                     let rtt = null;
-                    let candidateType = 'unknown';
 
                     stats.forEach(report => {
                         if (report.type === 'candidate-pair' && report.state === 'succeeded') {
                             rtt = report.currentRoundTripTime * 1000; // to ms
                         }
-                        if (report.type === 'remote-candidate') {
-                            candidateType = report.candidateType;
-                        }
                     });
 
                     // Update UI
                     if(rtt !== null) {
-                         const pingEl = document.getElementById('ping-stat');
-                         pingEl.innerText = rtt.toFixed(1) + " ms";
+                         document.getElementById('ping-stat').innerText = rtt.toFixed(1) + " ms";
                          
-                         // Determine Path Type
                          const pathEl = document.getElementById('path-type');
-                         const warnEl = document.getElementById('wifi-warning');
+                         const warnEl = document.getElementById('path-warning');
+                         const warnText = document.getElementById('warning-text');
+                         const successEl = document.getElementById('usb-success');
+                         const mode = document.getElementById('transfer-mode').value;
                          
-                         // Logic: USB Tether usually < 4ms. Wi-Fi usually > 5ms to 50ms.
-                         if (rtt < 5) {
-                             pathEl.innerHTML = `<span class="text-green-600"><i class="fas fa-bolt"></i> USB / LAN (Fast)</span>`;
-                             warnEl.classList.add('hidden');
-                         } else if (rtt < 50) {
-                             pathEl.innerHTML = `<span class="text-amber-600"><i class="fas fa-wifi"></i> Wi-Fi / Local</span>`;
-                             // Show warning if user wants speed
-                             warnEl.classList.remove('hidden');
-                         } else {
-                             pathEl.innerHTML = `<span class="text-red-600"><i class="fas fa-globe"></i> Relay / Internet (Slow)</span>`;
-                             warnEl.classList.remove('hidden');
+                         // Detection Logic
+                         const isFast = rtt < 8; // USB usually < 5ms
+                         
+                         // Reset displays
+                         warnEl.classList.add('hidden');
+                         successEl.classList.add('hidden');
+
+                         // --- MODE LOGIC ---
+                         
+                         if (mode === 'usb') {
+                             if (!isFast) {
+                                 pathEl.innerHTML = `<span class="text-red-600 font-bold">WI-FI DETECTED</span>`;
+                                 warnText.innerHTML = `<strong>Priority Mismatch:</strong> You selected 'Force USB' but speed is low.<br>Please <u>Turn OFF Wi-Fi</u> on your phone now.`;
+                                 warnEl.classList.remove('hidden');
+                             } else {
+                                 pathEl.innerHTML = `<span class="text-emerald-600 font-bold">USB / LAN</span>`;
+                                 successEl.classList.remove('hidden');
+                             }
+                         } 
+                         else if (mode === 'wifi') {
+                             pathEl.innerHTML = `<span class="text-indigo-600">Wi-Fi (Standard)</span>`;
+                             // No warnings for Wi-Fi mode
+                         }
+                         else { // Auto
+                             if (isFast) {
+                                 pathEl.innerHTML = `<span class="text-emerald-600"><i class="fas fa-bolt"></i> High Speed</span>`;
+                                 successEl.classList.remove('hidden');
+                             } else {
+                                 pathEl.innerHTML = `<span class="text-amber-600">Wi-Fi / Slow</span>`;
+                                 // Mild warning
+                                 warnText.innerHTML = `Tip: For faster speed, connect USB cable and turn off Wi-Fi.`;
+                                 warnEl.classList.remove('hidden');
+                             }
                          }
                     }
                 } catch(e) { console.log("Stats error", e); }
-            }, 2000);
+            }, 1000);
         }
         
         function stopNetworkStats() {
