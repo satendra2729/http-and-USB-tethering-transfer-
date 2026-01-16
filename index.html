@@ -177,7 +177,7 @@
 
             <!-- Receiver View -->
             <div id="view-receive" class="hidden">
-                <div class="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
+                <div id="default-recv-ui" class="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
                     <div class="mb-4">
                         <i class="fas fa-satellite-dish text-4xl text-indigo-300"></i>
                     </div>
@@ -186,6 +186,19 @@
                     <div id="fs-warning" class="hidden text-xs text-green-600 bg-green-50 p-2 rounded border border-green-100">
                         <i class="fas fa-check-circle mr-1"></i> Fast Disk Write Active
                     </div>
+                </div>
+
+                <!-- NEW: Incoming Request UI -->
+                <div id="incoming-req-ui" class="hidden text-center p-6 bg-indigo-50 rounded-xl border border-indigo-200">
+                    <div class="mb-4 animate-bounce">
+                        <i class="fas fa-file-import text-4xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="font-bold text-indigo-900 mb-1">Incoming File Request</h3>
+                    <p class="text-sm text-indigo-600 mb-4" id="incoming-filename">filename.mp4</p>
+                    <p class="text-xs text-gray-500 mb-6" id="incoming-filesize">0 GB</p>
+                    <button onclick="acceptTransfer()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-md">
+                        <i class="fas fa-download mr-2"></i> Accept & Save
+                    </button>
                 </div>
             </div>
         </div>
@@ -221,6 +234,7 @@
         let transferActive = false;
         let manualPC = null; // RTCPeerConnection for Manual Mode
         let manualDC = null; // DataChannel for Manual Mode
+        let incomingMetadata = null; // Store metadata while waiting for accept
         
         // Stats
         let statsInterval = null;
@@ -502,23 +516,35 @@
             alert("Transfer Cancelled");
         }
 
+        // --- SENDER LOGIC ---
         async function startTransfer() {
             if (!conn || !conn.open) return alert("Not connected to Receiver!");
             if (!selectedFile) return;
 
             const actionArea = document.getElementById('action-area');
             actionArea.innerHTML = `
-                <button onclick="cancelTransfer()" class="w-full bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all shadow-md">
-                    <i class="fas fa-stop-circle mr-2"></i> Stop Transfer
+                <button class="w-full bg-gray-400 text-white font-bold py-3 rounded-xl cursor-wait shadow-md">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> Waiting for Accept...
                 </button>
             `;
 
+            // Step 1: Send Metadata and wait for 'ack'
             conn.send({
                 type: 'metadata',
                 name: selectedFile.name,
                 size: selectedFile.size,
                 mime: selectedFile.type
             });
+        }
+        
+        // Step 2: Received ACK, start actual data loop
+        async function startSendingData() {
+            const actionArea = document.getElementById('action-area');
+            actionArea.innerHTML = `
+                <button onclick="cancelTransfer()" class="w-full bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all shadow-md">
+                    <i class="fas fa-stop-circle mr-2"></i> Stop Transfer
+                </button>
+            `;
 
             document.getElementById('progress-panel').classList.remove('hidden');
             document.getElementById('progress-bar').classList.add('transferring');
@@ -575,36 +601,28 @@
             }
         }
 
-        // --- Receive Logic ---
+        // --- RECEIVER LOGIC ---
         let receivedSize = 0;
         let totalSize = 0;
         let incomingFileName = "";
         let receiveBuffer = [];
 
         async function handleIncomingData(data) {
+            // 1. Receive Metadata -> Show Accept UI
             if (data.type === 'metadata') {
-                totalSize = data.size;
-                incomingFileName = data.name;
-                receivedSize = 0;
-                receiveBuffer = [];
-                lastTime = Date.now();
-                lastOffset = 0;
-                transferActive = true;
+                incomingMetadata = data; // Store for accept action
                 
-                document.getElementById('progress-panel').classList.remove('hidden');
-                document.getElementById('progress-bar').classList.add('transferring');
-                document.getElementById('progress-text').innerText = `Receiving: ${data.name}`;
+                // Show UI
+                document.getElementById('default-recv-ui').classList.add('hidden');
+                document.getElementById('incoming-req-ui').classList.remove('hidden');
+                document.getElementById('incoming-filename').innerText = data.name;
+                document.getElementById('incoming-filesize').innerText = (data.size / (1024*1024*1024)).toFixed(2) + " GB";
+            
+            // 2. Sender received ACK -> Start sending
+            } else if (data.type === 'ack') {
+                startSendingData();
 
-                if ('showSaveFilePicker' in window) {
-                    try {
-                        fileHandle = await window.showSaveFilePicker({ suggestedName: data.name });
-                        writableStream = await fileHandle.createWritable();
-                    } catch (err) {
-                        conn.send({type: 'cancel'});
-                        resetTransferUI();
-                    }
-                }
-
+            // 3. Receive Chunks
             } else if (data.type === 'chunk' && transferActive) {
                 receivedSize += data.data.byteLength;
                 if (receivedSize % (512*1024) < 64*1024) updateProgress(receivedSize, totalSize);
@@ -619,9 +637,48 @@
                 updateProgress(totalSize, totalSize);
                 finishReceive();
             } else if (data.type === 'cancel') {
-                alert("Sender cancelled the transfer.");
+                alert("The other party cancelled the transfer.");
                 if (writableStream) await writableStream.abort();
                 resetTransferUI();
+            }
+        }
+        
+        // Receiver clicks "Accept"
+        async function acceptTransfer() {
+            if(!incomingMetadata) return;
+            
+            totalSize = incomingMetadata.size;
+            incomingFileName = incomingMetadata.name;
+            receivedSize = 0;
+            receiveBuffer = [];
+            lastTime = Date.now();
+            lastOffset = 0;
+            transferActive = true;
+            
+            // Hide Request UI
+            document.getElementById('incoming-req-ui').classList.add('hidden');
+            document.getElementById('default-recv-ui').classList.remove('hidden');
+            
+            // Show Progress UI
+            document.getElementById('progress-panel').classList.remove('hidden');
+            document.getElementById('progress-bar').classList.add('transferring');
+            document.getElementById('progress-text').innerText = `Receiving: ${incomingFileName}`;
+
+            // Try File Handle (MUST be triggered by this user gesture)
+            if ('showSaveFilePicker' in window) {
+                try {
+                    fileHandle = await window.showSaveFilePicker({ suggestedName: incomingFileName });
+                    writableStream = await fileHandle.createWritable();
+                    // SUCCESS! Tell Sender to go.
+                    conn.send({type: 'ack'});
+                } catch (err) {
+                    console.log("Save cancelled or failed", err);
+                    conn.send({type: 'cancel'});
+                    resetTransferUI();
+                }
+            } else {
+                // Fallback for no File System API
+                conn.send({type: 'ack'});
             }
         }
 
@@ -644,6 +701,7 @@
         // --- Utilities ---
         function resetTransferUI() {
             transferActive = false;
+            incomingMetadata = null;
             document.getElementById('action-area').innerHTML = `
                 <button onclick="startTransfer()" id="send-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">
                     Start Transfer
@@ -652,6 +710,9 @@
             setTimeout(() => {
                 document.getElementById('progress-panel').classList.add('hidden');
                 document.getElementById('progress-bar').style.width = "0%";
+                // Reset receiver UI
+                document.getElementById('incoming-req-ui').classList.add('hidden');
+                document.getElementById('default-recv-ui').classList.remove('hidden');
             }, 2000);
             writableStream = null;
             receiveBuffer = [];
