@@ -35,11 +35,20 @@
         .gear-indicator {
             transition: all 0.3s ease;
         }
+        /* Manual Mode Styles */
+        .manual-step {
+            border-left: 3px solid #e5e7eb;
+            padding-left: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .manual-step.active {
+            border-color: #4f46e5;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
 
-    <div class="glass-panel w-full max-w-md rounded-2xl p-6 transition-all duration-300">
+    <div class="glass-panel w-full max-w-lg rounded-2xl p-6 transition-all duration-300">
         <!-- Header -->
         <div class="text-center mb-6">
             <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
@@ -47,13 +56,12 @@
             </div>
             <h1 class="text-2xl font-bold text-gray-800">File Beam <span class="text-indigo-600">Pro</span></h1>
             
-            <!-- Priority Mode Selector -->
+            <!-- Mode Selector -->
             <div class="mt-4 flex justify-center">
                 <div class="relative inline-flex bg-gray-50 rounded-lg p-1 border border-gray-200 shadow-inner">
                     <select id="transfer-mode" onchange="updateMode()" class="bg-transparent font-bold text-xs text-indigo-700 py-2 px-4 pr-8 rounded-md focus:outline-none cursor-pointer appearance-none uppercase tracking-wide">
-                        <option value="auto">Auto (Best Effort)</option>
-                        <option value="usb">Force USB Speed</option>
-                        <option value="wifi">Wi-Fi Only</option>
+                        <option value="auto">Auto (Internet Required)</option>
+                        <option value="manual">Manual (Copy/Paste Code)</option>
                     </select>
                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-indigo-500">
                         <i class="fas fa-chevron-down text-xs"></i>
@@ -72,25 +80,17 @@
                  <span class="text-gray-500 font-bold text-xs uppercase">Latency (Ping)</span>
                  <span id="ping-stat" class="font-mono text-gray-700">-- ms</span>
              </div>
-             
-             <!-- Dynamic Warnings -->
-             <div id="path-warning" class="hidden mt-3 p-3 bg-red-50 text-red-700 text-xs rounded-lg border border-red-100 flex items-start">
-                 <i class="fas fa-exclamation-triangle mt-0.5 mr-2 flex-shrink-0"></i>
-                 <span id="warning-text">Warning message here.</span>
-             </div>
-             
-             <!-- Success Badge -->
              <div id="usb-success" class="hidden mt-3 p-3 bg-emerald-50 text-emerald-700 text-xs rounded-lg border border-emerald-100 flex items-center">
                  <i class="fas fa-bolt mr-2 text-emerald-500"></i>
                  <span><strong>High Speed Active!</strong> USB connection verified.</span>
              </div>
         </div>
 
-        <!-- Connection Status -->
+        <!-- Connection Status (Auto Mode) -->
         <div id="status-panel" class="mb-6 bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Your Identity</p>
-            <div class="flex items-center justify-between">
-                <span id="my-id" class="text-lg font-mono font-bold text-indigo-600 select-all">Generating...</span>
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Connection Status</p>
+            <div id="auto-id-display" class="flex items-center justify-between">
+                <span id="my-id" class="text-lg font-mono font-bold text-indigo-600 select-all">Generating ID...</span>
                 <button onclick="copyId()" class="text-gray-400 hover:text-indigo-600 transition-colors">
                     <i class="fas fa-copy"></i>
                 </button>
@@ -101,18 +101,7 @@
                     <span class="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></span>
                     Waiting for connection...
                 </p>
-                <div id="troubleshoot-area" class="hidden mt-2">
-                    <button onclick="retryConnection()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full transition-colors border border-gray-300">
-                        <i class="fas fa-redo-alt mr-1"></i> Stuck? Retry
-                    </button>
-                    <p class="text-[10px] text-red-400 mt-1 ml-1">Tip: Toggle Airplane mode on phone & refresh.</p>
-                </div>
             </div>
-
-            <p class="text-[10px] text-gray-400 mt-2 text-center border-t border-gray-100 pt-2">
-                <i class="fas fa-info-circle"></i> Mobile Data MUST be ON for initial handshake.<br>
-                If USB fails: Refresh Phone browser <b>after</b> plugging in.
-            </p>
         </div>
 
         <!-- Tabs -->
@@ -121,45 +110,82 @@
             <button onclick="switchTab('receive')" id="tab-receive" class="flex-1 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 transition-all">Receiver (PC)</button>
         </div>
 
-        <!-- Sender View -->
-        <div id="view-send" class="block">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Connect to Receiver</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="dest-id" placeholder="Enter PC's ID here" class="flex-1 rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase">
-                        <button onclick="connectToPeer()" id="connect-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
-                            <i class="fas fa-link"></i>
-                        </button>
-                    </div>
-                </div>
+        <!-- MANUAL HANDSHAKE UI (Hidden by default) -->
+        <div id="manual-handshake-ui" class="hidden mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+            <h3 class="font-bold text-indigo-900 mb-4 text-sm uppercase"><i class="fas fa-handshake mr-2"></i> Manual Handshake</h3>
+            
+            <!-- Step 1: Offer -->
+            <div class="manual-step active" id="step-1">
+                <p class="text-xs font-bold text-indigo-600 mb-1">STEP 1: SENDER</p>
+                <p class="text-xs text-gray-600 mb-2">Click below to generate connection code.</p>
+                <button onclick="manualCreateOffer()" class="w-full bg-indigo-600 text-white text-xs font-bold py-2 rounded hover:bg-indigo-700">Create Offer</button>
+                <textarea id="manual-offer-out" readonly class="w-full h-16 mt-2 text-[10px] font-mono p-2 border rounded bg-white" placeholder="Offer code will appear here..."></textarea>
+                <button onclick="copyToClipboard('manual-offer-out')" class="text-xs text-indigo-600 font-bold mt-1">Copy Offer Code</button>
+            </div>
 
-                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer relative">
-                    <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(this)">
-                    <div id="drop-zone-text">
-                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-                        <p class="text-sm text-gray-500">Tap to select file</p>
-                    </div>
-                </div>
+            <!-- Step 2: Answer -->
+            <div class="manual-step" id="step-2">
+                <p class="text-xs font-bold text-indigo-600 mb-1">STEP 2: RECEIVER</p>
+                <p class="text-xs text-gray-600 mb-2">Paste Offer Code from Sender below:</p>
+                <textarea id="manual-offer-in" class="w-full h-16 text-[10px] font-mono p-2 border rounded bg-white" placeholder="Paste Offer Code here..."></textarea>
+                <button onclick="manualCreateAnswer()" class="w-full bg-indigo-600 text-white text-xs font-bold py-2 rounded mt-2 hover:bg-indigo-700">Generate Answer</button>
                 
-                <div id="action-area">
-                    <button onclick="startTransfer()" id="send-btn" class="w-full bg-gray-300 text-gray-500 font-bold py-3 rounded-xl cursor-not-allowed transition-all" disabled>
-                        Start Transfer
-                    </button>
-                </div>
+                <p class="text-xs text-gray-600 mt-3 mb-1">Copy this Answer Code:</p>
+                <textarea id="manual-answer-out" readonly class="w-full h-16 text-[10px] font-mono p-2 border rounded bg-white" placeholder="Answer code will appear here..."></textarea>
+                <button onclick="copyToClipboard('manual-answer-out')" class="text-xs text-indigo-600 font-bold mt-1">Copy Answer Code</button>
+            </div>
+
+            <!-- Step 3: Finalize -->
+            <div class="manual-step" id="step-3">
+                <p class="text-xs font-bold text-indigo-600 mb-1">STEP 3: SENDER</p>
+                <p class="text-xs text-gray-600 mb-2">Paste Answer Code from Receiver below:</p>
+                <textarea id="manual-answer-in" class="w-full h-16 text-[10px] font-mono p-2 border rounded bg-white" placeholder="Paste Answer Code here..."></textarea>
+                <button onclick="manualFinalize()" class="w-full bg-green-600 text-white text-xs font-bold py-2 rounded mt-2 hover:bg-green-700">Finalize Connection</button>
             </div>
         </div>
 
-        <!-- Receiver View -->
-        <div id="view-receive" class="hidden">
-            <div class="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
-                <div class="mb-4">
-                    <i class="fas fa-satellite-dish text-4xl text-indigo-300"></i>
+        <!-- Auto Connect UI -->
+        <div id="auto-connect-ui" class="block">
+            <!-- Sender View -->
+            <div id="view-send" class="block">
+                <div class="space-y-4">
+                    <div id="peer-connect-input">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Connect to Receiver</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="dest-id" placeholder="Enter PC's ID here" class="flex-1 rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase">
+                            <button onclick="connectToPeer()" id="connect-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                                <i class="fas fa-link"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer relative">
+                        <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(this)">
+                        <div id="drop-zone-text">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                            <p class="text-sm text-gray-500">Tap to select file</p>
+                        </div>
+                    </div>
+                    
+                    <div id="action-area">
+                        <button onclick="startTransfer()" id="send-btn" class="w-full bg-gray-300 text-gray-500 font-bold py-3 rounded-xl cursor-not-allowed transition-all" disabled>
+                            Start Transfer
+                        </button>
+                    </div>
                 </div>
-                <h3 class="font-bold text-gray-800 mb-2">Ready to Receive</h3>
-                <p class="text-sm text-gray-500 mb-4">Share your ID above with the sender.</p>
-                <div id="fs-warning" class="hidden text-xs text-green-600 bg-green-50 p-2 rounded border border-green-100">
-                    <i class="fas fa-check-circle mr-1"></i> Fast Disk Write Active
+            </div>
+
+            <!-- Receiver View -->
+            <div id="view-receive" class="hidden">
+                <div class="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="mb-4">
+                        <i class="fas fa-satellite-dish text-4xl text-indigo-300"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-800 mb-2">Ready to Receive</h3>
+                    <p class="text-sm text-gray-500 mb-4" id="recv-instruction">Share your ID above with the sender.</p>
+                    <div id="fs-warning" class="hidden text-xs text-green-600 bg-green-50 p-2 rounded border border-green-100">
+                        <i class="fas fa-check-circle mr-1"></i> Fast Disk Write Active
+                    </div>
                 </div>
             </div>
         </div>
@@ -185,115 +211,192 @@
     </div>
 
     <script>
-        // --- Logic & State ---
-        let peer = null;
-        let conn = null;
+        // --- Global State ---
+        let peer = null; // Auto mode
+        let conn = null; // Can be Auto or Manual wrapper
         let myId = '';
         let selectedFile = null;
         let fileHandle = null;
         let writableStream = null;
         let transferActive = false;
+        let manualPC = null; // RTCPeerConnection for Manual Mode
+        let manualDC = null; // DataChannel for Manual Mode
         
         // Stats
         let statsInterval = null;
         let lastTime = Date.now();
         let lastOffset = 0;
         
-        // Robust PeerJS Configuration
-        const peerConfig = { 
-            debug: 1,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' },
-                ],
-                iceCandidatePoolSize: 10, 
-            }
-        };
-
-        // Initialize Peer
+        // --- Initialization ---
         function init() {
-            const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
-            peer = new Peer(shortId, peerConfig);
-
-            peer.on('open', (id) => {
-                myId = id;
-                document.getElementById('my-id').innerText = id;
-            });
-
-            peer.on('connection', (connection) => {
-                handleConnection(connection);
-            });
-
-            peer.on('error', (err) => {
-                console.error(err);
-                if (err.type === 'peer-unavailable') {
-                    alert("Could not connect: User ID not found. Check typo or internet.");
-                    setConnStatus("Peer not found", "red");
-                } else {
-                    setConnStatus("Error: " + err.type, "red");
-                }
-                document.getElementById('troubleshoot-area').classList.remove('hidden');
-            });
-
+            // Check for File System Access API
             if ('showSaveFilePicker' in window) {
                 document.getElementById('fs-warning').classList.remove('hidden');
             }
+            // Start in Auto Mode by default
+            startAutoMode();
         }
 
-        // --- Connection Handling ---
-        function retryConnection() {
-            if(conn) conn.close();
-            connectToPeer();
-            document.getElementById('troubleshoot-area').classList.add('hidden');
+        function updateMode() {
+            const mode = document.getElementById('transfer-mode').value;
+            if (mode === 'manual') {
+                document.getElementById('manual-handshake-ui').classList.remove('hidden');
+                document.getElementById('peer-connect-input').classList.add('hidden'); // Hide ID input in manual
+                document.getElementById('status-panel').classList.add('hidden'); // Hide PeerID display
+                document.getElementById('recv-instruction').innerText = "Follow Manual Steps above.";
+                
+                // Reset PeerJS to avoid conflicts
+                if(peer) peer.destroy();
+                peer = null;
+            } else {
+                document.getElementById('manual-handshake-ui').classList.add('hidden');
+                document.getElementById('peer-connect-input').classList.remove('hidden');
+                document.getElementById('status-panel').classList.remove('hidden');
+                document.getElementById('recv-instruction').innerText = "Share your ID above with the sender.";
+                startAutoMode();
+            }
+        }
+
+        // --- AUTO MODE (PeerJS) ---
+        function startAutoMode() {
+            const peerConfig = { 
+                debug: 1,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            };
+            const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
+            
+            try {
+                peer = new Peer(shortId, peerConfig);
+
+                peer.on('open', (id) => {
+                    myId = id;
+                    document.getElementById('my-id').innerText = id;
+                });
+
+                peer.on('connection', (connection) => {
+                    handleConnection(connection);
+                });
+
+                peer.on('error', (err) => {
+                    console.error("PeerJS Error:", err);
+                    setConnStatus("Error: " + err.type, "red");
+                });
+            } catch(e) {
+                console.error("PeerJS Init Failed", e);
+            }
         }
 
         function connectToPeer() {
             const destId = document.getElementById('dest-id').value.toUpperCase();
             if (!destId) return alert("Please enter the ID");
-            
             setConnStatus("Initializing handshake...", "amber");
-            
-            // Explicitly requesting reliable channel
-            conn = peer.connect(destId, { 
-                reliable: true,
-                serialization: 'binary'
-            });
+            conn = peer.connect(destId, { reliable: true, serialization: 'binary' });
             handleConnection(conn);
         }
+
+        // --- MANUAL MODE (Native WebRTC) ---
+        // Mimics the 'conn' interface of PeerJS so existing logic works
+        
+        async function createManualPC() {
+            const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+            manualPC = new RTCPeerConnection(config);
+            
+            manualPC.onicecandidate = e => {
+                // Wait for all candidates (null) or just show current
+                if (e.candidate === null) {
+                    const offerJSON = JSON.stringify(manualPC.localDescription);
+                    // Update the text areas based on signaling state
+                    if (manualPC.localDescription.type === 'offer') {
+                        document.getElementById('manual-offer-out').value = offerJSON;
+                    } else {
+                        document.getElementById('manual-answer-out').value = offerJSON;
+                    }
+                }
+            };
+
+            manualPC.ondatachannel = e => {
+                setupManualDataChannel(e.channel);
+            };
+        }
+
+        function setupManualDataChannel(dc) {
+            manualDC = dc;
+            manualDC.binaryType = 'arraybuffer';
+            
+            // Create a wrapper that looks like PeerJS 'conn'
+            conn = {
+                open: true,
+                send: (data) => manualDC.send(data),
+                peerConnection: manualPC, // For stats
+                dataChannel: manualDC, // For buffer check
+                on: (event, cb) => {
+                    if (event === 'data') manualDC.onmessage = (e) => cb(e.data);
+                    if (event === 'close') manualDC.onclose = cb;
+                    if (event === 'open') {
+                        if(manualDC.readyState === 'open') cb();
+                        else manualDC.onopen = cb;
+                    }
+                }
+            };
+
+            manualDC.onopen = () => {
+                setConnStatus("Manual Connection Open!", "green");
+                document.getElementById('manual-handshake-ui').classList.add('hidden'); // Hide manual UI on success
+                document.getElementById('status-panel').classList.remove('hidden'); // Show status
+                startNetworkStats();
+            };
+            
+            manualDC.onclose = () => {
+                setConnStatus("Disconnected", "red");
+                stopNetworkStats();
+            };
+        }
+
+        // Step 1: Sender creates Offer
+        async function manualCreateOffer() {
+            await createManualPC();
+            const dc = manualPC.createDataChannel("file-beam");
+            setupManualDataChannel(dc);
+            
+            const offer = await manualPC.createOffer();
+            await manualPC.setLocalDescription(offer);
+            document.getElementById('manual-offer-out').value = "Generating candidates... please wait...";
+        }
+
+        // Step 2: Receiver takes Offer, creates Answer
+        async function manualCreateAnswer() {
+            const offerStr = document.getElementById('manual-offer-in').value;
+            if(!offerStr) return alert("Paste the Offer first!");
+            
+            await createManualPC();
+            await manualPC.setRemoteDescription(JSON.parse(offerStr));
+            const answer = await manualPC.createAnswer();
+            await manualPC.setLocalDescription(answer);
+            document.getElementById('manual-answer-out').value = "Generating candidates... please wait...";
+        }
+
+        // Step 3: Sender takes Answer
+        async function manualFinalize() {
+            const answerStr = document.getElementById('manual-answer-in').value;
+            if(!answerStr) return alert("Paste the Answer first!");
+            
+            await manualPC.setRemoteDescription(JSON.parse(answerStr));
+        }
+
+
+        // --- COMMON LOGIC (Handlers) ---
 
         function handleConnection(connection) {
             conn = connection;
             
-            // Watch internal ICE state for detailed feedback
-            conn.peerConnection.oniceconnectionstatechange = () => {
-                const state = conn.peerConnection.iceConnectionState;
-                console.log("ICE State:", state);
-                if(state === 'checking') setConnStatus("Checking Network Paths...", "amber");
-                if(state === 'connected') setConnStatus("Path Found! Securing...", "green");
-                if(state === 'failed' || state === 'disconnected') {
-                    setConnStatus("Connection Failed", "red");
-                    document.getElementById('troubleshoot-area').classList.remove('hidden');
-                }
-            };
-
-            // Timeout safety check
-            const timeoutCheck = setTimeout(() => {
-                if (!conn.open) {
-                    setConnStatus("Connection Stuck...", "red");
-                    document.getElementById('troubleshoot-area').classList.remove('hidden');
-                }
-            }, 6000);
-
+            // Auto Mode handlers
             conn.on('open', () => {
-                clearTimeout(timeoutCheck);
                 setConnStatus("Connected securely!", "green");
-                document.getElementById('troubleshoot-area').classList.add('hidden');
-                
-                // Start Network Diagnostics
                 startNetworkStats();
             });
 
@@ -306,6 +409,14 @@
                 stopNetworkStats();
                 if(transferActive) cancelTransfer();
             });
+            
+            // PeerJS ICE monitoring
+            if(conn.peerConnection) {
+                 conn.peerConnection.oniceconnectionstatechange = () => {
+                    const state = conn.peerConnection.iceConnectionState;
+                    if(state === 'failed' || state === 'disconnected') setConnStatus("Connection Failed", "red");
+                };
+            }
         }
 
         function setConnStatus(text, colorClass) {
@@ -319,12 +430,7 @@
             el.innerHTML = `<span class="w-2 h-2 rounded-full bg-${colorClass}-500 mr-2 ${colorClass === 'amber' ? 'animate-pulse' : ''}"></span> ${text}`;
         }
 
-        // --- Network Diagnostics (Smart USB Detection) ---
-        function updateMode() {
-            // Only start stats if we are actually connected
-            if(conn && conn.open) startNetworkStats(); 
-        }
-
+        // --- Stats & Diagnostics ---
         function startNetworkStats() {
             document.getElementById('network-monitor').classList.remove('hidden');
             document.getElementById('path-type').innerText = "Analyzing Path...";
@@ -332,59 +438,27 @@
             if(statsInterval) clearInterval(statsInterval);
             
             statsInterval = setInterval(async () => {
+                // Compatible with both PeerJS and Manual (both have .peerConnection)
                 if(!conn || !conn.peerConnection) return;
                 
                 try {
                     const stats = await conn.peerConnection.getStats();
                     let rtt = null;
-
                     stats.forEach(report => {
                         if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-                            rtt = report.currentRoundTripTime * 1000; // to ms
+                            rtt = report.currentRoundTripTime * 1000;
                         }
                     });
 
-                    // Update UI
                     if(rtt !== null) {
                          document.getElementById('ping-stat').innerText = rtt.toFixed(1) + " ms";
-                         
                          const pathEl = document.getElementById('path-type');
-                         const warnEl = document.getElementById('path-warning');
-                         const warnText = document.getElementById('warning-text');
-                         const successEl = document.getElementById('usb-success');
-                         const mode = document.getElementById('transfer-mode').value;
                          
-                         // Detection Logic
-                         const isFast = rtt < 8; // USB usually < 5ms
-                         
-                         // Reset displays
-                         warnEl.classList.add('hidden');
-                         successEl.classList.add('hidden');
-
-                         // --- MODE LOGIC ---
-                         
-                         if (mode === 'usb') {
-                             if (!isFast) {
-                                 pathEl.innerHTML = `<span class="text-red-600 font-bold">WI-FI DETECTED</span>`;
-                                 warnText.innerHTML = `<strong>Priority Mismatch:</strong> You selected 'Force USB' but speed is low.<br>Please <u>Turn OFF Wi-Fi</u> on your phone now.`;
-                                 warnEl.classList.remove('hidden');
-                             } else {
-                                 pathEl.innerHTML = `<span class="text-emerald-600 font-bold">USB / LAN</span>`;
-                                 successEl.classList.remove('hidden');
-                             }
-                         } 
-                         else if (mode === 'wifi') {
-                             pathEl.innerHTML = `<span class="text-indigo-600">Wi-Fi (Standard)</span>`;
-                         }
-                         else { // Auto
-                             if (isFast) {
-                                 pathEl.innerHTML = `<span class="text-emerald-600"><i class="fas fa-bolt"></i> High Speed</span>`;
-                                 successEl.classList.remove('hidden');
-                             } else {
-                                 pathEl.innerHTML = `<span class="text-amber-600">Wi-Fi / Slow</span>`;
-                                 warnText.innerHTML = `Tip: For faster speed, connect USB cable and turn off Wi-Fi.`;
-                                 warnEl.classList.remove('hidden');
-                             }
+                         if (rtt < 8) {
+                             pathEl.innerHTML = `<span class="text-emerald-600 font-bold">USB / LAN</span>`;
+                             document.getElementById('usb-success').classList.remove('hidden');
+                         } else {
+                             pathEl.innerHTML = `<span class="text-amber-600">Wi-Fi / Slow</span>`;
                          }
                     }
                 } catch(e) { console.log("Stats error", e); }
@@ -396,9 +470,7 @@
             document.getElementById('network-monitor').classList.add('hidden');
         }
 
-
-        // --- Optimized File Sending Logic ---
-        
+        // --- File Handling (Chunk Reader) ---
         function readChunk(file, offset, length) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -453,7 +525,7 @@
             
             transferActive = true;
 
-            // --- ADAPTIVE GEAR SYSTEM ---
+            // ADAPTIVE GEAR SYSTEM
             const GEARS = [32*1024, 64*1024, 128*1024, 256*1024, 512*1024];
             let currentGearIndex = 1; 
             let chunkSize = GEARS[currentGearIndex]; 
@@ -465,10 +537,9 @@
             let chunksSentSinceCheck = 0;
 
             while (offset < selectedFile.size && transferActive) {
-                
+                // Flow control
                 if (conn.dataChannel.bufferedAmount > MAX_BUFFER) {
-                    await new Promise(r => setTimeout(r, 0)); // Aggressive 0ms wait
-                    
+                    await new Promise(r => setTimeout(r, 0));
                     if (currentGearIndex > 0 && Math.random() > 0.9) { 
                         currentGearIndex--;
                         chunkSize = GEARS[currentGearIndex];
@@ -490,7 +561,6 @@
                 if (!chunk) break; 
 
                 conn.send({ type: 'chunk', data: chunk });
-
                 offset += chunk.byteLength;
                 chunksSentSinceCheck++;
                 
@@ -500,12 +570,12 @@
             if (transferActive) {
                 updateProgress(selectedFile.size, selectedFile.size);
                 conn.send({ type: 'end' });
-                setStatus("Transfer Complete", "green");
+                setConnStatus("Transfer Complete", "green");
                 resetTransferUI();
             }
         }
 
-        // --- File Receiving Logic ---
+        // --- Receive Logic ---
         let receivedSize = 0;
         let totalSize = 0;
         let incomingFileName = "";
@@ -571,7 +641,7 @@
             resetTransferUI();
         }
 
-        // --- UI Utilities ---
+        // --- Utilities ---
         function resetTransferUI() {
             transferActive = false;
             document.getElementById('action-area').innerHTML = `
@@ -591,9 +661,6 @@
             const kb = Math.round(size/1024);
             const el = document.getElementById('gear-text');
             el.innerText = `Gear ${index+1} (${kb}KB)`;
-            
-            if (index >= 3) el.className = "gear-indicator font-mono font-bold text-indigo-600";
-            else el.className = "gear-indicator font-mono text-gray-500";
         }
 
         function switchTab(tab) {
@@ -623,7 +690,6 @@
                 const speedMBps = (speedBps / (1024 * 1024)).toFixed(1);
                 
                 document.getElementById('speed-text').innerText = `${speedMBps} MB/s`;
-                
                 lastTime = now;
                 lastOffset = current;
             }
@@ -632,6 +698,13 @@
         function copyId() {
             navigator.clipboard.writeText(myId);
             alert("ID Copied!");
+        }
+
+        function copyToClipboard(id) {
+            const el = document.getElementById(id);
+            el.select();
+            navigator.clipboard.writeText(el.value);
+            alert("Copied to clipboard!");
         }
 
         // Start App
