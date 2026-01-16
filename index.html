@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIY File Beam (Priority Control)</title>
+    <title>DIY File Beam (Turbo)</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PeerJS for WebRTC connection -->
@@ -18,22 +18,8 @@
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
         }
         body {
-            background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); /* Indigo */
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%); /* Green for Speed */
             min-height: 100vh;
-        }
-        /* Pulse animation for active transfer */
-        @keyframes flow {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .transferring {
-            background: linear-gradient(270deg, #4f46e5, #818cf8, #4f46e5);
-            background-size: 200% 200%;
-            animation: flow 2s ease infinite;
-        }
-        .gear-indicator {
-            transition: all 0.3s ease;
         }
     </style>
 </head>
@@ -41,57 +27,20 @@
 
     <div class="glass-panel w-full max-w-md rounded-2xl p-6 transition-all duration-300">
         <!-- Header -->
-        <div class="text-center mb-6">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
-                <i class="fas fa-network-wired text-3xl"></i>
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mb-4">
+                <i class="fas fa-rocket text-2xl"></i>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800">File Beam <span class="text-indigo-600">Pro</span></h1>
-            
-            <!-- Priority Mode Selector -->
-            <div class="mt-4 flex justify-center">
-                <div class="relative inline-flex bg-gray-50 rounded-lg p-1 border border-gray-200 shadow-inner">
-                    <select id="transfer-mode" onchange="updateMode()" class="bg-transparent font-bold text-xs text-indigo-700 py-2 px-4 pr-8 rounded-md focus:outline-none cursor-pointer appearance-none uppercase tracking-wide">
-                        <option value="auto">Auto (Best Effort)</option>
-                        <option value="usb">Force USB Speed</option>
-                        <option value="wifi">Wi-Fi Only</option>
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-indigo-500">
-                        <i class="fas fa-chevron-down text-xs"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Network Path Monitor -->
-        <div id="network-monitor" class="hidden mb-6 bg-gray-50 rounded-xl p-3 border border-gray-200 text-sm transition-all duration-300">
-             <div class="flex justify-between items-center mb-1">
-                 <span class="text-gray-500 font-bold text-xs uppercase">Current Path</span>
-                 <span id="path-type" class="font-mono font-bold text-gray-700">Analyzing...</span>
-             </div>
-             <div class="flex justify-between items-center">
-                 <span class="text-gray-500 font-bold text-xs uppercase">Latency (Ping)</span>
-                 <span id="ping-stat" class="font-mono text-gray-700">-- ms</span>
-             </div>
-             
-             <!-- Dynamic Warnings -->
-             <div id="path-warning" class="hidden mt-3 p-3 bg-red-50 text-red-700 text-xs rounded-lg border border-red-100 flex items-start">
-                 <i class="fas fa-exclamation-triangle mt-0.5 mr-2 flex-shrink-0"></i>
-                 <span id="warning-text">Warning message here.</span>
-             </div>
-             
-             <!-- Success Badge -->
-             <div id="usb-success" class="hidden mt-3 p-3 bg-emerald-50 text-emerald-700 text-xs rounded-lg border border-emerald-100 flex items-center">
-                 <i class="fas fa-bolt mr-2 text-emerald-500"></i>
-                 <span><strong>High Speed Active!</strong> USB connection verified.</span>
-             </div>
+            <h1 class="text-2xl font-bold text-gray-800">File Beam <span class="text-emerald-600">Turbo</span></h1>
+            <p class="text-sm text-gray-500 mt-1">Optimized for USB Tethering & LAN</p>
         </div>
 
         <!-- Connection Status -->
         <div id="status-panel" class="mb-6 bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
             <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Your Identity</p>
             <div class="flex items-center justify-between">
-                <span id="my-id" class="text-lg font-mono font-bold text-indigo-600 select-all">Generating...</span>
-                <button onclick="copyId()" class="text-gray-400 hover:text-indigo-600 transition-colors">
+                <span id="my-id" class="text-lg font-mono font-bold text-emerald-600 select-all">Generating...</span>
+                <button onclick="copyId()" class="text-gray-400 hover:text-emerald-600 transition-colors">
                     <i class="fas fa-copy"></i>
                 </button>
             </div>
@@ -113,14 +62,14 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Connect to Receiver</label>
                     <div class="flex gap-2">
-                        <input type="text" id="dest-id" placeholder="Enter PC's ID here" class="flex-1 rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase">
-                        <button onclick="connectToPeer()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                        <input type="text" id="dest-id" placeholder="Enter PC's ID here" class="flex-1 rounded-lg border-gray-300 border p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase">
+                        <button onclick="connectToPeer()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
                             <i class="fas fa-link"></i>
                         </button>
                     </div>
                 </div>
 
-                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer relative">
+                <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-emerald-500 transition-colors cursor-pointer relative">
                     <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileSelect(this)">
                     <div id="drop-zone-text">
                         <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
@@ -128,11 +77,9 @@
                     </div>
                 </div>
                 
-                <div id="action-area">
-                    <button onclick="startTransfer()" id="send-btn" class="w-full bg-gray-300 text-gray-500 font-bold py-3 rounded-xl cursor-not-allowed transition-all" disabled>
-                        Start Transfer
-                    </button>
-                </div>
+                <button onclick="startTransfer()" id="send-btn" class="w-full bg-gray-300 text-gray-500 font-bold py-3 rounded-xl cursor-not-allowed transition-all" disabled>
+                    Start Turbo Transfer
+                </button>
             </div>
         </div>
 
@@ -140,7 +87,7 @@
         <div id="view-receive" class="hidden">
             <div class="text-center p-8 bg-gray-50 rounded-xl border border-gray-100">
                 <div class="mb-4">
-                    <i class="fas fa-satellite-dish text-4xl text-indigo-300"></i>
+                    <i class="fas fa-satellite-dish text-4xl text-emerald-300"></i>
                 </div>
                 <h3 class="font-bold text-gray-800 mb-2">Ready to Receive</h3>
                 <p class="text-sm text-gray-500 mb-4">Share your ID above with the sender.</p>
@@ -154,18 +101,12 @@
         <div id="progress-panel" class="hidden mt-6">
             <div class="flex justify-between text-sm mb-1">
                 <span class="font-medium text-gray-700" id="progress-text">Transferring...</span>
-                <span class="font-bold text-indigo-600" id="progress-percent">0%</span>
+                <span class="font-bold text-emerald-600" id="progress-percent">0%</span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div id="progress-bar" class="bg-emerald-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
-            <div class="flex justify-between items-center mt-2">
-                <div class="flex items-center space-x-2 text-xs text-gray-500">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span id="gear-text" class="gear-indicator font-mono">Gear 1 (64KB)</span>
-                </div>
-                <p id="speed-text" class="text-xs text-gray-500 font-mono text-right">0.0 MB/s</p>
-            </div>
+            <p id="speed-text" class="text-xs text-gray-500 mt-2 text-right font-mono">0.0 MB/s</p>
         </div>
 
     </div>
@@ -178,10 +119,8 @@
         let selectedFile = null;
         let fileHandle = null;
         let writableStream = null;
-        let transferActive = false;
         
-        // Stats
-        let statsInterval = null;
+        // Speed Calculation vars
         let lastTime = Date.now();
         let lastOffset = 0;
         
@@ -218,7 +157,7 @@
             if (!destId) return alert("Please enter the ID");
             
             setStatus("Connecting to " + destId + "...", "amber");
-            conn = peer.connect(destId, { reliable: true });
+            conn = peer.connect(destId);
             handleConnection(conn);
         }
 
@@ -229,9 +168,6 @@
                 setStatus("Connected securely!", "green");
                 document.getElementById('connection-status').innerHTML = 
                     `<span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span> Connected`;
-                
-                // Start Network Diagnostics
-                startNetworkStats();
             });
 
             conn.on('data', async (data) => {
@@ -240,97 +176,17 @@
 
             conn.on('close', () => {
                 setStatus("Disconnected", "red");
-                stopNetworkStats();
-                if(transferActive) cancelTransfer();
+                endTransfer();
             });
         }
 
-        // --- Network Diagnostics (Smart USB Detection) ---
-        function updateMode() {
-            // Re-trigger analysis when mode changes
-            startNetworkStats(); 
-        }
-
-        function startNetworkStats() {
-            document.getElementById('network-monitor').classList.remove('hidden');
-            
-            if(statsInterval) clearInterval(statsInterval);
-            
-            statsInterval = setInterval(async () => {
-                if(!conn || !conn.peerConnection) return;
-                
-                try {
-                    const stats = await conn.peerConnection.getStats();
-                    let rtt = null;
-
-                    stats.forEach(report => {
-                        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-                            rtt = report.currentRoundTripTime * 1000; // to ms
-                        }
-                    });
-
-                    // Update UI
-                    if(rtt !== null) {
-                         document.getElementById('ping-stat').innerText = rtt.toFixed(1) + " ms";
-                         
-                         const pathEl = document.getElementById('path-type');
-                         const warnEl = document.getElementById('path-warning');
-                         const warnText = document.getElementById('warning-text');
-                         const successEl = document.getElementById('usb-success');
-                         const mode = document.getElementById('transfer-mode').value;
-                         
-                         // Detection Logic
-                         const isFast = rtt < 8; // USB usually < 5ms
-                         
-                         // Reset displays
-                         warnEl.classList.add('hidden');
-                         successEl.classList.add('hidden');
-
-                         // --- MODE LOGIC ---
-                         
-                         if (mode === 'usb') {
-                             if (!isFast) {
-                                 pathEl.innerHTML = `<span class="text-red-600 font-bold">WI-FI DETECTED</span>`;
-                                 warnText.innerHTML = `<strong>Priority Mismatch:</strong> You selected 'Force USB' but speed is low.<br>Please <u>Turn OFF Wi-Fi</u> on your phone now.`;
-                                 warnEl.classList.remove('hidden');
-                             } else {
-                                 pathEl.innerHTML = `<span class="text-emerald-600 font-bold">USB / LAN</span>`;
-                                 successEl.classList.remove('hidden');
-                             }
-                         } 
-                         else if (mode === 'wifi') {
-                             pathEl.innerHTML = `<span class="text-indigo-600">Wi-Fi (Standard)</span>`;
-                             // No warnings for Wi-Fi mode
-                         }
-                         else { // Auto
-                             if (isFast) {
-                                 pathEl.innerHTML = `<span class="text-emerald-600"><i class="fas fa-bolt"></i> High Speed</span>`;
-                                 successEl.classList.remove('hidden');
-                             } else {
-                                 pathEl.innerHTML = `<span class="text-amber-600">Wi-Fi / Slow</span>`;
-                                 // Mild warning
-                                 warnText.innerHTML = `Tip: For faster speed, connect USB cable and turn off Wi-Fi.`;
-                                 warnEl.classList.remove('hidden');
-                             }
-                         }
-                    }
-                } catch(e) { console.log("Stats error", e); }
-            }, 1000);
-        }
-        
-        function stopNetworkStats() {
-            if(statsInterval) clearInterval(statsInterval);
-            document.getElementById('network-monitor').classList.add('hidden');
-        }
-
-
         // --- Optimized File Sending Logic ---
         
+        // Helper: Promisified FileReader for clean async loops
         function readChunk(file, offset, length) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = (e) => resolve(null); 
                 reader.readAsArrayBuffer(file.slice(offset, offset + length));
             });
         }
@@ -339,35 +195,22 @@
             if (input.files.length > 0) {
                 selectedFile = input.files[0];
                 document.getElementById('drop-zone-text').innerHTML = 
-                    `<i class="fas fa-file-video text-3xl text-indigo-500 mb-2"></i>
+                    `<i class="fas fa-file-video text-3xl text-emerald-500 mb-2"></i>
                      <p class="text-sm font-bold text-gray-700">${selectedFile.name}</p>
                      <p class="text-xs text-gray-500">${(selectedFile.size / (1024*1024*1024)).toFixed(2)} GB</p>`;
                 
                 const btn = document.getElementById('send-btn');
                 btn.disabled = false;
                 btn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-                btn.classList.add('bg-indigo-600', 'text-white', 'hover:bg-indigo-700');
+                btn.classList.add('bg-emerald-600', 'text-white', 'hover:bg-emerald-700');
             }
-        }
-
-        function cancelTransfer() {
-            transferActive = false;
-            if (conn && conn.open) conn.send({ type: 'cancel' });
-            resetTransferUI();
-            alert("Transfer Cancelled");
         }
 
         async function startTransfer() {
             if (!conn || !conn.open) return alert("Not connected to Receiver!");
             if (!selectedFile) return;
 
-            const actionArea = document.getElementById('action-area');
-            actionArea.innerHTML = `
-                <button onclick="cancelTransfer()" class="w-full bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all shadow-md">
-                    <i class="fas fa-stop-circle mr-2"></i> Stop Transfer
-                </button>
-            `;
-
+            // 1. Send Metadata
             conn.send({
                 type: 'metadata',
                 name: selectedFile.name,
@@ -376,60 +219,48 @@
             });
 
             document.getElementById('progress-panel').classList.remove('hidden');
-            document.getElementById('progress-bar').classList.add('transferring');
             
-            transferActive = true;
-
-            // --- ADAPTIVE GEAR SYSTEM ---
-            const GEARS = [32*1024, 64*1024, 128*1024, 256*1024, 512*1024];
-            let currentGearIndex = 1; 
-            let chunkSize = GEARS[currentGearIndex]; 
-            const MAX_BUFFER = 16 * 1024 * 1024; 
-
+            // --- TURBO MODE SETTINGS ---
+            const CHUNK_SIZE = 256 * 1024; // 256KB Chunks (Larger for less CPU overhead)
+            const MAX_BUFFER = 16 * 1024 * 1024; // 16MB Max Buffer (Prevents network choking)
             let offset = 0;
+            
+            // Reset speed calc
             lastTime = Date.now();
             lastOffset = 0;
-            let chunksSentSinceCheck = 0;
 
-            while (offset < selectedFile.size && transferActive) {
+            // 2. High-Speed Loop with Backpressure
+            while (offset < selectedFile.size) {
                 
-                if (conn.dataChannel.bufferedAmount > MAX_BUFFER) {
-                    await new Promise(r => setTimeout(r, 0)); // Aggressive 0ms wait
-                    
-                    if (currentGearIndex > 0 && Math.random() > 0.9) { 
-                        currentGearIndex--;
-                        chunkSize = GEARS[currentGearIndex];
-                        updateGearUI(currentGearIndex, chunkSize);
-                    }
-                    continue; 
+                // CRITICAL: Flow Control (Backpressure)
+                // If the network buffer is full, wait for it to drain. 
+                // This prevents packet loss and maintains high speed.
+                if (conn.dataChannel && conn.dataChannel.bufferedAmount > MAX_BUFFER) {
+                    await new Promise(r => setTimeout(r, 10)); // Short nap
+                    continue; // Re-check buffer
                 }
 
-                if (conn.dataChannel.bufferedAmount === 0 && currentGearIndex < GEARS.length - 1) {
-                     if (chunksSentSinceCheck > 50) {
-                        currentGearIndex++;
-                        chunkSize = GEARS[currentGearIndex];
-                        updateGearUI(currentGearIndex, chunkSize);
-                        chunksSentSinceCheck = 0;
-                     }
-                }
-
-                const chunk = await readChunk(selectedFile, offset, chunkSize);
-                if (!chunk) break; 
-
-                conn.send({ type: 'chunk', data: chunk });
+                // Read next chunk
+                const chunk = await readChunk(selectedFile, offset, CHUNK_SIZE);
+                
+                // Send
+                conn.send({
+                    type: 'chunk',
+                    data: chunk
+                });
 
                 offset += chunk.byteLength;
-                chunksSentSinceCheck++;
                 
-                if (chunksSentSinceCheck % 5 === 0) updateProgress(offset, selectedFile.size);
+                // Throttle UI updates (Update every ~1MB to save CPU)
+                if (offset % (1024*1024) < CHUNK_SIZE) {
+                    updateProgress(offset, selectedFile.size);
+                }
             }
             
-            if (transferActive) {
-                updateProgress(selectedFile.size, selectedFile.size);
-                conn.send({ type: 'end' });
-                setStatus("Transfer Complete", "green");
-                resetTransferUI();
-            }
+            // Final update
+            updateProgress(selectedFile.size, selectedFile.size);
+            conn.send({ type: 'end' });
+            setStatus("Transfer Complete", "green");
         }
 
         // --- File Receiving Logic ---
@@ -446,83 +277,55 @@
                 receiveBuffer = [];
                 lastTime = Date.now();
                 lastOffset = 0;
-                transferActive = true;
                 
                 document.getElementById('progress-panel').classList.remove('hidden');
-                document.getElementById('progress-bar').classList.add('transferring');
                 document.getElementById('progress-text').innerText = `Receiving: ${data.name}`;
 
+                // ChromeOS: Use File System Access API
                 if ('showSaveFilePicker' in window) {
                     try {
-                        fileHandle = await window.showSaveFilePicker({ suggestedName: data.name });
+                        fileHandle = await window.showSaveFilePicker({
+                            suggestedName: data.name
+                        });
                         writableStream = await fileHandle.createWritable();
                     } catch (err) {
-                        conn.send({type: 'cancel'});
-                        resetTransferUI();
+                        console.log("File save cancelled or API not supported.");
                     }
                 }
 
-            } else if (data.type === 'chunk' && transferActive) {
+            } else if (data.type === 'chunk') {
                 receivedSize += data.data.byteLength;
-                if (receivedSize % (512*1024) < 64*1024) updateProgress(receivedSize, totalSize);
+                
+                // Throttle UI on receiver side too
+                if (receivedSize % (1024*1024) < 256*1024) {
+                     updateProgress(receivedSize, totalSize);
+                }
 
                 if (writableStream) {
+                    // Direct stream to disk
                     await writableStream.write(data.data);
                 } else {
                     receiveBuffer.push(data.data);
                 }
 
             } else if (data.type === 'end') {
-                updateProgress(totalSize, totalSize);
-                finishReceive();
-            } else if (data.type === 'cancel') {
-                alert("Sender cancelled the transfer.");
-                if (writableStream) await writableStream.abort();
-                resetTransferUI();
+                updateProgress(totalSize, totalSize); // Ensure 100%
+                if (writableStream) {
+                    await writableStream.close();
+                    alert("File Saved Successfully!");
+                } else {
+                    const blob = new Blob(receiveBuffer);
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = incomingFileName;
+                    a.click();
+                }
+                resetTransfer();
             }
-        }
-
-        async function finishReceive() {
-            document.getElementById('progress-bar').classList.remove('transferring');
-            if (writableStream) {
-                await writableStream.close();
-                alert("File Saved Successfully!");
-            } else {
-                const blob = new Blob(receiveBuffer);
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = incomingFileName;
-                a.click();
-            }
-            resetTransferUI();
         }
 
         // --- UI Utilities ---
-        function resetTransferUI() {
-            transferActive = false;
-            document.getElementById('action-area').innerHTML = `
-                <button onclick="startTransfer()" id="send-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">
-                    Start Transfer
-                </button>
-            `;
-            setTimeout(() => {
-                document.getElementById('progress-panel').classList.add('hidden');
-                document.getElementById('progress-bar').style.width = "0%";
-            }, 2000);
-            writableStream = null;
-            receiveBuffer = [];
-        }
-
-        function updateGearUI(index, size) {
-            const kb = Math.round(size/1024);
-            const el = document.getElementById('gear-text');
-            el.innerText = `Gear ${index+1} (${kb}KB)`;
-            
-            if (index >= 3) el.className = "gear-indicator font-mono font-bold text-indigo-600";
-            else el.className = "gear-indicator font-mono text-gray-500";
-        }
-
         function switchTab(tab) {
             document.getElementById('tab-send').className = tab === 'send' 
                 ? "flex-1 py-2 rounded-md text-sm font-medium bg-white shadow-sm text-gray-800 transition-all"
@@ -541,9 +344,11 @@
             document.getElementById('progress-bar').style.width = percent + "%";
             document.getElementById('progress-percent').innerText = percent + "%";
             
+            // Calculate Speed
             const now = Date.now();
             const timeDiff = now - lastTime;
             
+            // Update speed every 1 second approx
             if (timeDiff > 1000) {
                 const bytesDiff = current - lastOffset;
                 const speedBps = (bytesDiff / timeDiff) * 1000;
@@ -563,6 +368,15 @@
 
         function setStatus(msg, color) {
             console.log(msg);
+        }
+
+        function resetTransfer() {
+            setTimeout(() => {
+                document.getElementById('progress-panel').classList.add('hidden');
+                document.getElementById('progress-bar').style.width = "0%";
+            }, 3000);
+            writableStream = null;
+            receiveBuffer = [];
         }
 
         // Start App
